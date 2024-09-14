@@ -4,6 +4,8 @@ from calendar import monthrange
 import pandas as pd
 import json
 import os
+import datetime
+from chinese_calendar import is_holiday
 
 # 配置文件路径
 CONFIG_FILE = "config.json"
@@ -22,7 +24,6 @@ def load_config():
             global config
             config = json.load(file)
             print(config)
-    
 
 def generate_person_row(name):
     global config
@@ -54,11 +55,15 @@ def generate_person_row(name):
     if person_config["工作类型"] == "日班":
         for day in days:
             week_index = pd.Timestamp(year, month, day).weekday()
-            if week_index == 5 or week_index == 6:
+            
+            # 先把日和休填好
+            # if week_index == 5 or week_index == 6:
+            if is_holiday(datetime.date(year, month, day)):
                 work[day - 1] = "休"
             else:
                 work[day - 1] = "日"
             
+            # 根据个人工作安排，增加填写字段
             if "专" in person_config["个人"]:
                 if week_index + 1 in person_config["个人"]["专"]:
                     if work[day - 1] == "日":
@@ -76,10 +81,26 @@ def generate_person_row(name):
     elif  person_config["工作类型"] == "值班":
         for day in days:
             week_index = pd.Timestamp(year, month, day).weekday()
+            
+            # 先把值和/填好
             if (day - 1 + first_index) % total_num == person_index:
                 print("day", day, " on duty:", person_config["姓名"])
                 work[day - 1] = "值"
                 work[day - 1 + 1] = "/"
+                if day == 4:
+                    work[0] = "/"
+                if is_holiday(datetime.date(year, month, day)):
+                    work[day - 1 + 2] = "休"
+            
+            # 再把日和休填好
+            if is_holiday(datetime.date(year, month, day)):
+                if work[day - 1] == "":
+                    work[day - 1] = "休"
+                elif work[day - 1] == "/":
+                    work[day - 1] += "休"
+            else:
+                if work[day - 1] == "":
+                    work[day - 1] = "日"
             pass
         pass
 
